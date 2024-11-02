@@ -1,0 +1,333 @@
+
+/*
+*
+* titan language parser
+*
+*/
+
+
+@StartGrammar compilationUnit ;
+
+@NonterminalGrammar begin ;
+
+// --------------------path start-------------------------
+
+pathIdentSegment :
+  'super'
+  | 'self'
+  | 'crate'
+  | Identifier
+  | 'module' '<' Identifier '>'
+  | 'block' '<' Identifier '>'
+  | 'primitive' '<' Identifier '>'
+  | 'struct' '<' Identifier '>'
+  | 'enum' '<' Identifier '>'
+  | 'class' '<' Identifier '>'
+  | 'function' '<' Identifier '>'
+;
+
+moduleIdentifier :
+     pathIdentSegment (':' ':' pathIdentSegment)*
+;
+
+typeIdentifier :
+     pathIdentSegment (':' ':' pathIdentSegment)*
+;
+
+expressionName :
+     pathIdentSegment (':' ':' pathIdentSegment)*
+;
+
+// --------------------path end-------------------------
+
+
+// --------------------expression start-------------------------
+
+literal :
+   IntegerLiteral
+   | StringLiteral
+;
+
+expression :
+   assignmentExpression
+   | rangeExpression
+;
+
+assignmentExpression :
+  conditionalExpression
+	|	assignment
+;
+
+assignment :
+  leftSideOfAssignment assignmentOperator expression
+	;
+
+leftSideOfAssignment :
+  expressionName
+;
+
+assignmentOperator :
+  '='
+  | '+' '='
+	;
+
+conditionalExpression :
+  rangeExpression
+	|	rangeExpression '?' expression ':' conditionalExpression
+;
+
+rangeExpression :
+   conditionalOrExpression
+   | conditionalOrExpression '.' '.' conditionalOrExpression
+   | conditionalOrExpression '.' '.' '=' conditionalOrExpression
+;
+
+conditionalOrExpression :
+  conditionalAndExpression
+	|	conditionalOrExpression '|' '|' conditionalAndExpression
+;
+
+conditionalAndExpression :
+  inclusiveOrExpression
+	|	conditionalAndExpression '&' '&' inclusiveOrExpression
+;
+
+inclusiveOrExpression :
+  exclusiveOrExpression
+	|	inclusiveOrExpression '|' exclusiveOrExpression
+;
+
+exclusiveOrExpression :
+  andExpression
+	|	exclusiveOrExpression '^' andExpression
+;
+
+andExpression :
+  equalityExpression
+	|	andExpression '&' equalityExpression
+;
+
+equalityExpression :
+  relationalExpression
+	|	equalityExpression '=' '=' relationalExpression
+	|	equalityExpression '!' '=' relationalExpression
+;
+
+relationalExpression :
+  shiftExpression
+	|	relationalExpression '<' shiftExpression
+	|	relationalExpression '>' shiftExpression
+	|	relationalExpression '<' '=' shiftExpression
+	|	relationalExpression '>' '=' shiftExpression
+;
+
+shiftExpression :
+  additiveExpression
+	|	shiftExpression '<' '<' additiveExpression
+	|	shiftExpression '>' '>' additiveExpression
+	|	shiftExpression '>' '>' '>' additiveExpression
+;
+
+additiveExpression :
+  multiplicativeExpression
+	|	additiveExpression '+' multiplicativeExpression
+	|	additiveExpression '-' multiplicativeExpression
+;
+
+multiplicativeExpression :
+  unaryExpression
+	|	multiplicativeExpression '*' unaryExpression
+	|	multiplicativeExpression '/' unaryExpression
+	|	multiplicativeExpression '%' unaryExpression
+;
+
+unaryExpression :
+	unaryExpressionNotPlusMinus
+  | '+' unaryExpression
+	|	'-' unaryExpression
+;
+
+unaryExpressionNotPlusMinus :
+  postfixExpression
+	|	'~' unaryExpression
+	|	'!' unaryExpression
+	;
+
+postfixExpression :
+	expressionName
+	| primary
+;
+
+primary :
+  // (
+    primaryNoNewArray_lfno_primary
+		// |	arrayCreationExpression
+	// )
+
+	// primaryNoNewArray_lf_primary*
+;
+
+primaryNoNewArray_lfno_primary :
+   literal
+   | 'this'
+   | 'self'
+   | methodInvocation
+   | '(' expression ')'
+;
+
+methodInvocation :
+   Identifier '(' argumentList? ')'
+;
+
+argumentList :
+   expression (',' expression)*
+;
+
+// --------------------expression end-------------------------
+
+// --------------------statement start-------------------------
+
+emptyStatement :
+   ';'
+;
+
+expressionStatement :
+   expression ';'
+;
+
+returnStatement :
+     'return' expression? ';'
+;
+
+identifierPattern :
+   'reference'? Identifier
+;
+
+patternWithoutRange :
+    identifierPattern
+;
+
+patternNoTopAlt :
+   patternWithoutRange
+;
+
+pattern :
+     patternNoTopAlt ('|' patternNoTopAlt)*
+;
+
+letStatement :
+   'let' pattern (':' typeIdentifier)? ('=' expression)? ';'
+;
+
+loopBlockItem :
+     emptyStatement
+     | expressionStatement
+     | letStatement
+     | returnStatement
+     | loopStatement
+;
+
+loopBlock :
+ '{' loopBlockItem* '}'
+;
+
+iteratorLoopStatement :
+   'for' pattern 'in' expression loopBlock
+;
+
+loopStatement :
+  iteratorLoopStatement
+;
+
+// --------------------statement end--------------------------
+
+// --------------------annotation start-------------------------
+
+elementValueList :
+  elementValue (',' elementValue)*
+;
+
+elementValueArrayInitializer :
+  '{' elementValueList? '}'
+;
+
+elementValue :
+  conditionalExpression
+  | elementValueArrayInitializer
+;
+
+singleElementAnnotation :
+  '@' typeIdentifier '(' elementValue ')'
+;
+
+markerAnnotation :
+   '@' typeIdentifier
+;
+
+annotation :
+  markerAnnotation
+  | singleElementAnnotation
+;
+
+// --------------------annotation end-------------------------
+
+visibility : 'public' ;
+
+functionReturnTypeIdentifier :
+  '-' '>' typeIdentifier
+;
+
+selfParameter :
+   'self'
+   | 'this'
+;
+
+parameter :
+   Identifier ':' typeIdentifier
+;
+
+parameterList :
+   selfParameter
+   | (selfParameter ',')? parameter (',' parameter)*
+;
+
+functionBlockItem :
+     emptyStatement
+     | expressionStatement
+     | letStatement
+     | returnStatement
+     | loopStatement
+;
+
+functionBlock :
+	'{' functionBlockItem* '}'
+;
+
+functionModifier :
+   annotation
+   | visibility
+;
+
+functionDefinition :
+   functionModifier* Function Identifier '(' parameterList? ')' functionReturnTypeIdentifier? functionBlock
+;
+
+moduleBlockItem :
+     functionDefinition
+;
+
+useDeclaration : 'use' moduleIdentifier ';' ;
+
+moduleBlock :
+  '{' useDeclaration* moduleBlockItem* '}'
+;
+
+module :
+    visibility? 'module' moduleIdentifier moduleBlock
+;
+
+compilationUnit :
+  module+
+;
+
+@NonterminalGrammar end ;
