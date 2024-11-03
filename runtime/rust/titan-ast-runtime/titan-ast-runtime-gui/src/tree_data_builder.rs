@@ -73,9 +73,9 @@ impl TreeDataBuilder {
             boxs: Vec::with_capacity(count),
             rows: Vec::with_capacity(height),
             font_size: font_size,
-            font_width: font_size + 5,
-            font_height: font_size + 5,
-            col_line_height: (font_size + 5) * 2,
+            font_width: font_size,
+            font_height: font_size,
+            col_line_height: font_size * 2,
             row_text_gap: font_size,
             padding: font_size,
             width: 0,
@@ -88,11 +88,7 @@ impl TreeDataBuilder {
 }
 
 impl BoxTreeContext {
-    pub(crate) fn build(&mut self, string_tree: &StringTree, count: usize, height: usize) {
-        self.init_box_tree(string_tree, count, height);
-    }
-
-    fn init_box_tree(&mut self, string_tree: &StringTree, count: usize, height: usize) {
+    fn build(&mut self, string_tree: &StringTree, count: usize, height: usize) {
         // set row
         self.set_rows(height);
         // create box
@@ -166,20 +162,21 @@ impl BoxTreeContext {
 
     fn move_right_box_in_row(&mut self, index_of_box: usize, move_right: i32) {
         let index_of_row = self.boxs.get(index_of_box).unwrap().index_of_row;
-        let row = &self.rows.get(index_of_row).unwrap().boxs;
+        let hierarchical_row = self.rows.get_mut(index_of_row).unwrap();
         let mut start_offset_of_box_in_row: usize = 0;
-        for (index_of_box_in_row, offset) in row.iter().enumerate() {
-            if index_of_box_in_row == index_of_box {
-                start_offset_of_box_in_row = *offset;
+        let mut offset = 0;
+        for index_of_box_in_row in &hierarchical_row.boxs {
+            if *index_of_box_in_row == index_of_box {
+                start_offset_of_box_in_row = offset;
                 break;
             }
+            offset = offset + 1;
         }
-        for offset_of_box_in_row in start_offset_of_box_in_row..row.len() {
-            let index_of_box_in_row = row.get(offset_of_box_in_row).unwrap();
+        for offset_of_box_in_row in start_offset_of_box_in_row..hierarchical_row.boxs.len() {
+            let index_of_box_in_row = hierarchical_row.boxs.get(offset_of_box_in_row).unwrap();
             let box_in_row = self.boxs.get_mut(*index_of_box_in_row).unwrap();
             box_in_row.horizontal_axis = box_in_row.horizontal_axis + move_right;
         }
-        let hierarchical_row = self.rows.get_mut(index_of_row).unwrap();
         hierarchical_row.end_of_row = hierarchical_row.end_of_row + move_right;
     }
 
@@ -236,24 +233,12 @@ impl BoxTreeContext {
     }
 
     fn set_width_height(&mut self) {
-        /*
-        for index_of_row in 0..self.rows.len() {
-            let row = self.rows.get(index_of_row).unwrap();
+        for row in &self.rows {
             let current_width = row.end_of_row + self.padding;
             if current_width > self.width {
                 self.width = current_width;
             }
             let current_height = row.height + self.padding;
-            if current_height > self.height {
-                self.height = current_height;
-            }
-        }*/
-        for boz in &self.boxs {
-            let current_width = boz.horizontal_axis + self.padding;
-            if current_width > self.width {
-                self.width = current_width;
-            }
-            let current_height = boz.vertical_axis + self.padding;
             if current_height > self.height {
                 self.height = current_height;
             }
